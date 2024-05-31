@@ -1,3 +1,5 @@
+import { boardFlipped } from "./board";
+
 const evaluationBar = document.querySelector("#evaluation-bar") as SVGElement;
 const whiteRect = document.querySelector("#white-rect") as SVGRectElement;
 const blackRect = document.querySelector("#black-rect") as SVGRectElement;
@@ -44,7 +46,7 @@ function setEvalTextVisible(visiblePlayer: "white" | "black") {
     }
 }
 
-async function drawEvaluationBar(evaluation: Evaluation, boardFlipped: boolean, movedPlayer: "white" | "black") {
+export async function drawEvaluationBar(evaluation: Evaluation, boardFlipped: boolean, movedPlayer: "white" | "black") {
     const blackHeight = Math.max(Math.min(totalHeight / 2 - evaluation.value / 3, totalHeight), 0);
     const whiteHeight = Math.max(Math.min(totalHeight / 2 + evaluation.value / 3, totalHeight), 0);
 

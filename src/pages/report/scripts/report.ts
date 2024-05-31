@@ -1,3 +1,5 @@
+import { classificationColours } from "./board";
+
 const bestClassifications = [
     "brilliant",
     "great",
@@ -6,12 +8,12 @@ const bestClassifications = [
     "forced"
 ];
 
-function updateClassificationMessage(lastPosition: Position, position: Position) {
+export function updateClassificationMessage(lastPosition: Position, position: Position) {
 
     if (position.classification) {
         let classificationMessages: { [key: string]: string } = {
             "great": "a great move",
-            "good":"an okay move",
+            "good": "an okay move",
             "inaccuracy": "an inaccuracy",
             "mistake": "a mistake",
             "blunder": "a blunder",
@@ -42,7 +44,7 @@ function updateClassificationMessage(lastPosition: Position, position: Position)
 
 }
 
-function updateEngineSuggestions(lines: EngineLine[]) {
+export function updateEngineSuggestions(lines: EngineLine[]) {
 
     $(".engine-suggestion").remove();
     $("#engine-suggestions-title").css("display", "block");
@@ -83,7 +85,7 @@ $("#save-analysis-button").on("click", () => {
         results: reportResults
     };
 
-    let reportBlob = new Blob([JSON.stringify(savedAnalysis)], {"type": "application/json"});
+    let reportBlob = new Blob([JSON.stringify(savedAnalysis)], { "type": "application/json" });
 
     open(URL.createObjectURL(reportBlob));
 

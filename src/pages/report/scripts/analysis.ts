@@ -1,11 +1,21 @@
-let ongoingEvaluation = false;
+import { Chess } from "chess.js";
+import pgnParser from "pgn-parser";
+import analyse from "../../../../src/lib/analysis";
+import { EvaluatedPosition, Position } from "../../../../src/lib/types/Position";
+import { isNewGame, setIsNewGame } from "./evalgraph";
+import { classificationColours, traverseMoves, updateBoardPlayers } from "./board";
+import { Stockfish } from "./engine";
+import { classificationIcons } from "./sprites";
 
-let evaluatedPositions: Position[] = [];
-let reportResults: Report | undefined;
+
+export let ongoingEvaluation = false;
+
+export let evaluatedPositions: Position[] = [];
+export let reportResults: Report | undefined;
 
 function logAnalysisInfo(message: string) {
     $("#status-message").css("display", "block");
-    
+
     $("#status-message").css("background", "rgba(49, 51, 56, 255)");
     $("#status-message").css("color", "white");
     $("#status-message").html(message);
@@ -27,13 +37,13 @@ function logAnalysisError(message: string) {
 async function evaluate() {
     // Remove and reset CAPTCHA, remove report cards, display progress bar
     $(".g-recaptcha").css("display", "none");
-    grecaptcha.reset();
+    // grecaptcha.reset();
 
     $("#report-cards").css("display", "none");
     $("#evaluation-progress-bar").css("display", "none");
 
 
-    
+
 
     // Disallow evaluation if another evaluation is ongoing
     if (ongoingEvaluation) return;
@@ -53,15 +63,9 @@ async function evaluate() {
     logAnalysisInfo("Parsing PGN...");
 
     try {
-        let parseResponse = await fetch("/api/parse", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ pgn }),
-        });
+        let parseResponse = await parseApi(pgn);
 
-        let parsedPGN: ParseResponse = await parseResponse.json();
+        let parsedPGN = await parseApi(pgn);
 
         if (!parseResponse.ok) {
             return logAnalysisError(
@@ -75,13 +79,13 @@ async function evaluate() {
     }
 
     // Update board player usernames
-    whitePlayer.username =
-        pgn.match(/(?:\[White ")(.+)(?="\])/)?.[1] ?? "White Player";
-    whitePlayer.rating = pgn.match(/(?:\[WhiteElo ")(.+)(?="\])/)?.[1] ?? "?";
+    // whitePlayer.username =
+    //     pgn.match(/(?:\[White ")(.+)(?="\])/)?.[1] ?? "White Player";
+    // whitePlayer.rating = pgn.match(/(?:\[WhiteElo ")(.+)(?="\])/)?.[1] ?? "?";
 
-    blackPlayer.username =
-        pgn.match(/(?:\[Black ")(.+)(?="\])/)?.[1] ?? "Black Player";
-    blackPlayer.rating = pgn.match(/(?:\[BlackElo ")(.+)(?="\])/)?.[1] ?? "?";
+    // blackPlayer.username =
+    //     pgn.match(/(?:\[Black ")(.+)(?="\])/)?.[1] ?? "Black Player";
+    // blackPlayer.rating = pgn.match(/(?:\[BlackElo ")(.+)(?="\])/)?.[1] ?? "?";
 
     updateBoardPlayers();
 
@@ -168,14 +172,14 @@ async function evaluate() {
 
     const stockfishManager = setInterval(() => {
         // If all evaluations have been generated, move on
-        
+
         if (!positions.some((pos) => !pos.topLines)) {
             clearInterval(stockfishManager);
 
             logAnalysisInfo("Evaluation complete.");
             $("#evaluation-progress-bar").val(100);
             $(".g-recaptcha").css("display", "inline");
-            if(!document.hasFocus()){
+            if (!document.hasFocus()) {
                 let snd = new Audio("static/media/ping.mp3");
                 snd.play();
             }
@@ -185,7 +189,7 @@ async function evaluate() {
 
             evaluatedPositions = positions;
             ongoingEvaluation = false;
-
+            report()
             return;
         }
 
@@ -244,7 +248,7 @@ function loadReportCards() {
             const classificationRow = $("<div>").prop({
                 class: "classification-count-row"
             });
-        
+
             // Create white's classification count
             const whiteClassificationCount = $("<div>").prop({
                 class: "classification-count-white"
@@ -266,9 +270,9 @@ function loadReportCards() {
             });
             $(classificationIcons[classification]!).appendTo(classificationContent);
             $("<div>").html(`${classification}`)
-            .css({
-                color: classificationColours[classification]
-            }).appendTo(classificationContent);
+                .css({
+                    color: classificationColours[classification]
+                }).appendTo(classificationContent);
 
 
             // Add white's classification count
@@ -296,7 +300,7 @@ function loadReportCards() {
 
 async function report() {
     // Remove CAPTCHA
-    
+
     $(".g-recaptcha").css("display", "none");
     $("#secondary-message").html("");
     $("#evaluation-progress-bar").attr("value", null);
@@ -305,23 +309,15 @@ async function report() {
 
     // Post evaluations and get report results
     try {
-        let reportResponse = await fetch("/api/report", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                positions: evaluatedPositions.map((pos) => {
-                    if (pos.worker != "cloud") {
-                        pos.worker = "local";
-                    }
-                    return pos;
-                }),
-                captchaToken: grecaptcha.getResponse() || "none",
-            }),
-        });
+        const sendData = evaluatedPositions.map((pos) => {
+            if (pos.worker != "cloud") {
+                pos.worker = "local";
+            }
+            return pos;
+        })
+        let reportResponse = await reportApi(sendData);
 
-        let report: ReportResponse = await reportResponse.json();
+        let report = reportResponse;
 
         if (!reportResponse.ok) {
             return logAnalysisError(
@@ -339,7 +335,7 @@ async function report() {
 }
 
 $("#review-button").on("click", () => {
-    isNewGame = true;
+    setIsNewGame(true);
 
     if ($("#load-type-dropdown").val() == "json") {
         try {
@@ -370,3 +366,71 @@ $("#depth-slider").on("input", () => {
         $("#depth-counter").html(depth + `|<i class="fa-solid fa-hourglass-half" style="color: #ffffff;"></i>`);
     }
 });
+
+
+const parseApi = async (pgn: string) => {
+
+    if (!pgn) {
+        return { message: "Enter a PGN to analyse." };
+    }
+
+    // Parse PGN into object
+    try {
+        var [parsedPGN] = pgnParser.parse(pgn);
+
+        if (!parsedPGN) {
+            return { message: "Enter a PGN to analyse." };
+        }
+    } catch (err) {
+        return { message: "Failed to parse invalid PGN." };
+    }
+
+    // Create a virtual board
+    let board = new Chess();
+    let positions: Position[] = [];
+
+    positions.push({ fen: board.fen() });
+
+    // Add each move to the board; log FEN and SAN
+    for (let pgnMove of parsedPGN.moves) {
+        let moveSAN = pgnMove.move;
+
+        let virtualBoardMove;
+        try {
+            virtualBoardMove = board.move(moveSAN);
+        } catch (err) {
+            return { message: "PGN contains illegal moves." };
+        }
+
+        let moveUCI = virtualBoardMove.from + virtualBoardMove.to;
+
+        positions.push({
+            fen: board.fen(),
+            move: {
+                san: moveSAN,
+                uci: moveUCI
+            }
+        });
+    }
+
+    return { positions: positions, ok: true };
+}
+
+const reportApi = async (positions: EvaluatedPosition[]) => {
+
+    if (!positions) {
+        console.log("No positions to report.");
+        return { message: "Missing parameters.", ok: false };
+    }
+
+    // Generate report
+    try {
+        var results = await analyse(positions);
+    } catch (err) {
+        console.log("!err");
+        console.log(err);
+        return { message: "Failed to generate report.", ok: false };
+    }
+    console.log("results", results);
+    return { results: results, ok: true };
+}

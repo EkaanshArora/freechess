@@ -25,10 +25,10 @@ const pieceIds = {
     "black_king": "k"
 };
 
-let pieceImages: {[key: string]: HTMLImageElement} = {};
-let pieceLoaders: Promise<HTMLImageElement>[] = [];
+export let pieceImages: { [key: string]: HTMLImageElement } = {};
+export let pieceLoaders: Promise<HTMLImageElement>[] = [];
 
-for (let [ pieceId, pieceFenCharacter ] of Object.entries(pieceIds)) {
+for (let [pieceId, pieceFenCharacter] of Object.entries(pieceIds)) {
     let pieceLoader = loadSprite(pieceId + ".svg");
 
     pieceLoader.then(image => {
@@ -39,7 +39,7 @@ for (let [ pieceId, pieceFenCharacter ] of Object.entries(pieceIds)) {
 }
 
 // Load classification icon assets
-const classificationIcons: {[key: string]: HTMLImageElement | null} = {
+export const classificationIcons: { [key: string]: HTMLImageElement | null } = {
     "brilliant": null,
     "great": null,
     "best": null,

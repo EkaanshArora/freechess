@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync, existsSync, rmSync } from "fs";
-import analyse from "../lib/analysis";
-import { EvaluatedPosition } from "../lib/types/Position";
-import Report from "../lib/types/Report";
+import analyse from "../src/lib/analysis";
+import { EvaluatedPosition } from "../src/lib/types/Position";
+import Report from "../src/lib/types/Report";
 import evaluations from "./evaluations.json";
 
 const reports: Report[] = [];

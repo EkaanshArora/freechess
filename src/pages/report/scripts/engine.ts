@@ -1,9 +1,9 @@
-class Stockfish {
+export class Stockfish {
 
     private worker = new Worker(
         typeof WebAssembly == "object"
-        ? "/static/scripts/stockfish-nnue-16.js"
-        : "/static/scripts/stockfish.js"
+            ? "/static/scripts/stockfish-nnue-16.js"
+            : "/static/scripts/stockfish.js"
     );
 
     depth = 0;
@@ -32,7 +32,7 @@ class Stockfish {
                 this.depth = Math.max(latestDepth, this.depth);
 
                 // Best move or checkmate log indicates end of search
-                if (message.startsWith("bestmove") || message.includes("depth 0")) {            
+                if (message.startsWith("bestmove") || message.includes("depth 0")) {
                     let searchMessages = messages.filter(msg => msg.startsWith("info depth"));
 
                     for (let searchMessage of searchMessages) {
@@ -61,7 +61,7 @@ class Stockfish {
 
                         // Discard if target depth not reached or lineID already present
                         if (depth != targetDepth || lines.some(line => line.id == id)) continue;
-                        
+
                         lines.push({
                             id,
                             depth,
@@ -82,7 +82,7 @@ class Stockfish {
 
                 this.worker.postMessage("uci");
                 this.worker.postMessage("setoption name MultiPV value 2");
-                
+
                 this.evaluate(fen, targetDepth, verbose).then(res);
             });
         });
