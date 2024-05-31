@@ -1,10 +1,16 @@
+import { ongoingEvaluation, reportResults } from "./analysis";
+import { drawEvaluationBar } from "./evalbar";
+import { drawEvaluationGraph } from "./evalgraph";
+import { updateClassificationMessage, updateEngineSuggestions } from "./report";
+import { classificationIcons, pieceImages, pieceLoaders } from "./sprites";
+
 const ctx = $<HTMLCanvasElement>("#board").get(0)!.getContext("2d")!;
 
 const BOARD_SIZE = 1280;
 
 const startingPositionFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-const classificationColours: {[key: string]: string} = {
+export const classificationColours: { [key: string]: string } = {
     "brilliant": "#1baaa6",
     "great": "#5b8baf",
     "best": "#98bc49",
@@ -17,16 +23,16 @@ const classificationColours: {[key: string]: string} = {
     "book": "#a88764"
 };
 
-let currentMoveIndex = 0;
+export let currentMoveIndex = 0;
 
-let boardFlipped = false;
+export let boardFlipped = false;
 
 let lastEvaluation = {
     type: "cp",
     value: 0
 };
 
-let whitePlayer: Profile = {
+export let whitePlayer: Profile = {
     username: "White Player",
     rating: "?"
 };
@@ -60,22 +66,22 @@ function drawArrow(fromX: number, fromY: number, toX: number, toY: number, width
     let angle = Math.atan2(toY - fromY, toX - fromX);
     toX -= Math.cos(angle) * ((width * 1.15));
     toY -= Math.sin(angle) * ((width * 1.15));
-    
+
     arrowCtx.beginPath();
     arrowCtx.moveTo(fromX, fromY);
     arrowCtx.lineTo(toX, toY);
     arrowCtx.strokeStyle = classificationColours.best;
     arrowCtx.lineWidth = width;
     arrowCtx.stroke();
-    
+
     arrowCtx.beginPath();
     arrowCtx.moveTo(toX, toY);
     arrowCtx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 7), toY - headlen * Math.sin(angle - Math.PI / 7));
-    
+
     arrowCtx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 7), toY - headlen * Math.sin(angle + Math.PI / 7));
-    
+
     arrowCtx.lineTo(toX, toY);
-    arrowCtx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 7),toY - headlen * Math.sin(angle - Math.PI / 7));
+    arrowCtx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 7), toY - headlen * Math.sin(angle - Math.PI / 7));
 
     arrowCtx.strokeStyle = classificationColours.best;
     arrowCtx.lineWidth = width;
@@ -95,9 +101,9 @@ async function drawBoard(fen: string) {
             ctx.fillStyle = colours[(x + y) % 2];
 
             ctx.fillRect(
-                x * (BOARD_SIZE / 8), 
-                y * (BOARD_SIZE / 8), 
-                (BOARD_SIZE / 8), 
+                x * (BOARD_SIZE / 8),
+                y * (BOARD_SIZE / 8),
+                (BOARD_SIZE / 8),
                 (BOARD_SIZE / 8)
             );
         }
@@ -105,7 +111,7 @@ async function drawBoard(fen: string) {
 
     // Draw coordinates
     ctx.font = "24px Arial";
-    
+
     let files = "abcdefgh".split("");
     for (let x = 0; x < 8; x++) {
         ctx.fillStyle = colours[x % 2];
@@ -118,7 +124,7 @@ async function drawBoard(fen: string) {
 
     // Draw last move highlight
     let lastMove = reportResults?.positions[currentMoveIndex];
-    
+
     let lastMoveCoordinates = {
         from: { x: 0, y: 0 },
         to: { x: 0, y: 0 }
@@ -134,14 +140,14 @@ async function drawBoard(fen: string) {
         ctx.globalAlpha = 0.7;
         ctx.fillStyle = classificationColours[reportResults?.positions[currentMoveIndex].classification ?? "book"];
         ctx.fillRect(
-            lastMoveCoordinates.from.x * (BOARD_SIZE / 8), 
-            lastMoveCoordinates.from.y * (BOARD_SIZE / 8), 
+            lastMoveCoordinates.from.x * (BOARD_SIZE / 8),
+            lastMoveCoordinates.from.y * (BOARD_SIZE / 8),
             (BOARD_SIZE / 8),
             (BOARD_SIZE / 8)
         );
         ctx.fillRect(
-            lastMoveCoordinates.to.x * (BOARD_SIZE / 8), 
-            lastMoveCoordinates.to.y * (BOARD_SIZE / 8), 
+            lastMoveCoordinates.to.x * (BOARD_SIZE / 8),
+            lastMoveCoordinates.to.y * (BOARD_SIZE / 8),
             (BOARD_SIZE / 8),
             (BOARD_SIZE / 8)
         );
@@ -151,7 +157,7 @@ async function drawBoard(fen: string) {
     // Draw pieces
     let fenBoard = fen.split(" ")[0];
     let x = boardFlipped ? 7 : 0, y = x;
-    
+
     for (let character of fenBoard) {
         if (character == "/") {
             x = boardFlipped ? 7 : 0;
@@ -176,8 +182,8 @@ async function drawBoard(fen: string) {
         if (!classification) return;
         ctx.drawImage(
             classificationIcons[classification]!,
-            lastMoveCoordinates.to.x * (BOARD_SIZE / 8) + ((68 / 90) * (BOARD_SIZE / 8)), 
-            lastMoveCoordinates.to.y * (BOARD_SIZE / 8) - ((10 / 90) * (BOARD_SIZE / 8)), 
+            lastMoveCoordinates.to.x * (BOARD_SIZE / 8) + ((68 / 90) * (BOARD_SIZE / 8)),
+            lastMoveCoordinates.to.y * (BOARD_SIZE / 8) - ((10 / 90) * (BOARD_SIZE / 8)),
             56, 56
         );
     }
@@ -194,23 +200,23 @@ async function drawBoard(fen: string) {
                 opacity: 0.55
             }
         ];
-        
+
         let topLineIndex = -1;
         for (let topLine of lastMove?.topLines ?? []) {
             topLineIndex++;
-    
+
             let from = getBoardCoordinates(topLine.moveUCI.slice(0, 2));
             let to = getBoardCoordinates(topLine.moveUCI.slice(2, 4));
-    
+
             let arrow = drawArrow(
-                from.x * (BOARD_SIZE / 8) + (BOARD_SIZE / 16), 
-                from.y * (BOARD_SIZE / 8) + (BOARD_SIZE / 16), 
-                to.x * (BOARD_SIZE / 8) + (BOARD_SIZE / 16), 
-                to.y * (BOARD_SIZE / 8) + (BOARD_SIZE / 16), 
+                from.x * (BOARD_SIZE / 8) + (BOARD_SIZE / 16),
+                from.y * (BOARD_SIZE / 8) + (BOARD_SIZE / 16),
+                to.x * (BOARD_SIZE / 8) + (BOARD_SIZE / 16),
+                to.y * (BOARD_SIZE / 8) + (BOARD_SIZE / 16),
                 arrowAttributes[topLineIndex].width
             );
             if (!arrow) continue;
-    
+
             ctx.globalAlpha = arrowAttributes[topLineIndex].opacity;
             ctx.drawImage(arrow, 0, 0);
             ctx.globalAlpha = 1;
@@ -218,7 +224,7 @@ async function drawBoard(fen: string) {
     }
 }
 
-function updateBoardPlayers() {
+export function updateBoardPlayers() {
     // Get profiles depending on board orientation
     let bottomPlayerProfile = boardFlipped ? blackPlayer : whitePlayer;
     let topPlayerProfile = boardFlipped ? whitePlayer : blackPlayer;
@@ -235,7 +241,7 @@ function updateBoardPlayers() {
     $("#bottom-player-profile").html(`${bottomPlayerProfile.username} (${bottomPlayerProfile.rating})`);
 }
 
-function traverseMoves(moveCount: number) {
+export function traverseMoves(moveCount: number) {
     if (ongoingEvaluation || !reportResults) return;
 
     let positions = reportResults.positions;
@@ -268,7 +274,7 @@ function traverseMoves(moveCount: number) {
 
     // Do not play board audio if trying to traverse outside of game
     if (
-        (previousMoveIndex == 0 && moveCount < 0) 
+        (previousMoveIndex == 0 && moveCount < 0)
         || (previousMoveIndex == positions.length - 1 && moveCount > 0)
     ) return;
 
@@ -299,7 +305,7 @@ function traverseMoves(moveCount: number) {
 
 function getMovedPlayer() {
     return (currentMoveIndex % 2) === 0 ? "black" : "white";
- }
+}
 
 $("#back-start-move-button").on("click", () => {
     traverseMoves(-Infinity);
@@ -345,17 +351,17 @@ $("#board").on("click", event => {
 
 $("#flip-board-button").on("click", () => {
     boardFlipped = !boardFlipped;
-    
+
     const movedPlayer = getMovedPlayer();
 
     drawEvaluationBar(lastEvaluation, boardFlipped, movedPlayer);
     drawEvaluationGraph();
-    drawBoard(reportResults?.positions[currentMoveIndex]?.fen ?? startingPositionFen); 
+    drawBoard(reportResults?.positions[currentMoveIndex]?.fen ?? startingPositionFen);
     updateBoardPlayers();
 });
 
 $("#suggestion-arrows-setting").on("input", () => {
-    drawBoard(reportResults?.positions[currentMoveIndex]?.fen ?? startingPositionFen); 
+    drawBoard(reportResults?.positions[currentMoveIndex]?.fen ?? startingPositionFen);
 });
 
 Promise.all(pieceLoaders).then(() => {

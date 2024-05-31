@@ -1,13 +1,21 @@
-const evaluationGraphContainer = $("#evalgraph-container");
-const evaluationGraphCtx = ($("#evaluation-graph").get(0)! as HTMLCanvasElement).getContext("2d")!;
-let hoverIndex: number | null = null;
-let topLines: (EngineLine | undefined)[] = [];
-let isNewGame = false;
-let mouseX = 0;
-let mouseY = 0;
-let cursorImg: HTMLImageElement | null = null;
+import { type EngineLine } from "../../../../src/lib/types/Engine";
+import { reportResults } from "./analysis";
+import { boardFlipped, classificationColours, currentMoveIndex, traverseMoves } from "./board";
+import { classificationIcons } from "./sprites";
 
-async function drawEvaluationGraph() {
+export const evaluationGraphContainer = $("#evalgraph-container");
+export const evaluationGraphCtx = ($("#evaluation-graph").get(0)! as HTMLCanvasElement).getContext("2d")!;
+export let hoverIndex: number | null = null;
+export let topLines: (EngineLine | undefined)[] = [];
+export let isNewGame = false;
+export const setIsNewGame = (isNewGame: boolean) => {
+    isNewGame = isNewGame;
+};
+export let mouseX = 0;
+export let mouseY = 0;
+export let cursorImg: HTMLImageElement | null = null;
+
+export async function drawEvaluationGraph() {
     const graphHeight = 80;
     const desiredGraphWidth = 350;
     const maxEval = 1100; // Max centipawn value seems to be 1100, or max centipawn loss of -1100
@@ -58,7 +66,7 @@ async function drawEvaluationGraph() {
             evaluationGraphCtx.fillRect(cumulativeWidth - currentBarWidth, 0, currentBarWidth, graphHeight);
         } else if (evaluation?.type == "cp") {
             let height = graphHeight / 2 + evaluation?.value / cpPerPixel;
-             if (i === hoverIndex) {
+            if (i === hoverIndex) {
                 evaluationGraphCtx.fillStyle = "#dddddd";
             } else {
                 evaluationGraphCtx.fillStyle = "#ffffff";
@@ -70,7 +78,7 @@ async function drawEvaluationGraph() {
                 evaluationGraphCtx.fillRect(cumulativeWidth - currentBarWidth, 0, currentBarWidth, height);
             }
         }
-        
+
         if (i === currentMoveIndex && i === hoverIndex) {
             evaluationGraphCtx.fillStyle = classification ? getSemiTransparentColor(classificationColour, 0.8) : getSemiTransparentColor("#000000", 0.2);
             evaluationGraphCtx.fillRect(cumulativeWidth - currentBarWidth, 0, currentBarWidth, graphHeight);
@@ -89,7 +97,7 @@ async function drawEvaluationGraph() {
         evaluationGraphCtx.fillStyle = "#000000";
         evaluationGraphCtx.fillRect(cumulativeWidth, 0, remainingWidth, graphHeight);
     }
-    
+
     // Draw midline
     evaluationGraphCtx.beginPath();
     evaluationGraphCtx.moveTo(0, graphHeight / 2);
@@ -102,7 +110,7 @@ async function drawEvaluationGraph() {
     cumulativeWidth = 0;
     for (let i = 0; i < topLines.length; i++) {
         let currentBarWidth = baseBarWidth + Math.floor((i + 1) * extraWidthPerBar) - Math.floor(i * extraWidthPerBar);
-    
+
         if (i === hoverIndex) {
             const classification = positions[i]?.classification;
             if (classification && classificationIcons[classification]) {
@@ -111,10 +119,10 @@ async function drawEvaluationGraph() {
                 let iconX = mouseX < iconSize ? mouseX : mouseX - iconSize - 2;
                 let iconY = mouseY < iconSize / 2 ? 0 : mouseY - iconSize / 2;
                 iconY = mouseY > graphHeight - iconSize / 2 ? graphHeight - iconSize : iconY;
-    
+
                 if (icon) {
 
-                    
+
                     const canvasWidth = evaluationGraphCtx.canvas.width;
                     const canvasHeight = evaluationGraphCtx.canvas.height;
                     let speechBubble: any = new (window as any).SpeechBubble(evaluationGraphCtx);
@@ -146,7 +154,7 @@ async function drawEvaluationGraph() {
                         } else {
                             bubbleTop = mouseY + bubblePadding;
                         }
-                        
+
                         if (totalWidth > canvasWidth) {
                             bubbleLeft -= totalWidth - canvasWidth;
                         } else {
@@ -154,32 +162,32 @@ async function drawEvaluationGraph() {
                         }
                     }
 
-                    
+
                     if (bubbleLeft < 0) {
                         bubbleLeft = 0;
                     } else if (bubbleLeft + bubbleWidth > canvasWidth) {
                         bubbleLeft = canvasWidth - bubbleWidth;
                     }
-                    
+
                     if (bubbleTop < 0) {
                         bubbleTop = 0;
                     } else if (bubbleTop + bubbleHeight > canvasHeight) {
                         bubbleTop = canvasHeight - bubbleHeight;
                     }
-                    
+
                     speechBubble.panelBounds = new (window as any).SpeechBubble.Bounds(bubbleTop, bubbleLeft, bubbleWidth, bubbleHeight);
-                    
+
                     speechBubble.fontSize = 12;
-                    speechBubble.padding = 2; 
-                    speechBubble.cornerRadius = 2; 
-                    speechBubble.panelBorderWidth = 1; 
-                    speechBubble.panelBorderColor = "#000"; 
-                    speechBubble.fontColor = "#000"; 
-                    speechBubble.padding = bubblePadding; 
-                    speechBubble.font = "JetBrains Mono"; 
-                    speechBubble.panelFillColor = "rgba(255,255,255,0.7)"; 
-                    speechBubble.tailStyle = (window as any).SpeechBubble.TAIL_STRAIGHT; 
-                    
+                    speechBubble.padding = 2;
+                    speechBubble.cornerRadius = 2;
+                    speechBubble.panelBorderWidth = 1;
+                    speechBubble.panelBorderColor = "#000";
+                    speechBubble.fontColor = "#000";
+                    speechBubble.padding = bubblePadding;
+                    speechBubble.font = "JetBrains Mono";
+                    speechBubble.panelFillColor = "rgba(255,255,255,0.7)";
+                    speechBubble.tailStyle = (window as any).SpeechBubble.TAIL_STRAIGHT;
+
                     speechBubble.draw();
 
                     const imgX = bubbleLeft + bubbleGapX;
@@ -246,13 +254,13 @@ function drawCursor() {
     loadSprite("crosshair.png").then(image => {
         cursorImg = image
     });
-    
+
     let cursorSize = 10;
-    
+
     if (cursorImg) {
         evaluationGraphCtx.drawImage(cursorImg, mouseX - cursorSize / 2, mouseY - cursorSize / 2, cursorSize, cursorSize);
     }
-    
+
 
 }
 
